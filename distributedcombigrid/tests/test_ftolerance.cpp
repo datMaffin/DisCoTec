@@ -1,11 +1,10 @@
 #define BOOST_TEST_DYN_LINK
-#include <mpi.h>
+#include "mpi.h"
 #include <vector>
 #include <set>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/serialization/export.hpp>
-#include<boost/test/unit_test.hpp>
 
 // compulsory includes for basic functionality
 #include "sgpp/distributedcombigrid/task/Task.hpp"
@@ -17,19 +16,16 @@
 #include "sgpp/distributedcombigrid/manager/ProcessGroupManager.hpp"
 #include "sgpp/distributedcombigrid/manager/ProcessGroupWorker.hpp"
 #include "sgpp/distributedcombigrid/manager/ProcessManager.hpp"
-//#include "sgpp/distributedcombigrid/fault_tolerance/LPOptimizationInterpolation.hpp"
+#include "sgpp/distributedcombigrid/fault_tolerance/LPOptimizationInterpolation.hpp"
 #include "sgpp/distributedcombigrid/mpi_fault_simulator/MPI-FT.h"
 #include "sgpp/distributedcombigrid/fault_tolerance/FaultCriterion.hpp"
 #include "sgpp/distributedcombigrid/fault_tolerance/StaticFaults.hpp"
 #include "sgpp/distributedcombigrid/fault_tolerance/WeibullFaults.hpp"
 
 // include user specific task. this is the interface to your application
-#include "test_helper.hpp"
-#include "sgpp/distributedcombigrid/fault_tolerance/TaskExample.hpp"
+#include "TaskExample.hpp"
 
-#include "sgpp/distributedcombigrid/fault_tolerance/HelperFunctions.hpp"
-
-//,using namespace combigrid;
+#include "HelperFunctions.hpp"
 /* functor for exact solution */
 class TestFn {
  public:
@@ -43,55 +39,156 @@ class TestFn {
     return std::exp(exponent * 100.0) * 2;
   }
 };
+class TaskAdvectionFDM : public combigrid::Task {
+ public:
+  TaskAdvectionFDM(LevelVector& l, std::vector<bool>& boundary, real coeff, LoadModel* loadModel,
+                   real dt, size_t nsteps)
+      : Task(2, l, boundary, coeff, 
+      loadModel), dt_(dt), nsteps_(nsteps) {}
+
+  void init(CommunicatorType lcomm,
+            std::vector<IndexVector> decomposition = std::vector<IndexVector>()) {
+    // only use one process per group
+    IndexVector p(getDim(), 1);
+
+    dfg_ =
+        new DistributedFullGrid<CombiDataType>(getDim(), getLevelVector(), lcomm, getBoundary(), p);
+    phi_.resize(dfg_->getNrElements());
+
+    for (IndexType li = 0; li < dfg_->getNrElements(); ++li) {
+      std::vector<double> coords(getDim());
+      dfg_->getCoordsGlobal(li, coords);
+
+      double exponent = 0;
+      for (DimType d = 0; d < getDim(); ++d) {
+        exponent -= std::pow(coords[d] - 0.5, 2);
+      }
+      dfg_->getData()[li] = std::exp(exponent * 100.0) * 2;
+    }
+  }
+
+  void run(CommunicatorType lcomm) {
+    // velocity vector
+    std::vector<CombiDataType> u(getDim());
+    u[0] = 1;
+    u[1] = 1;
+
+    // gradient of phi
+    std::vector<CombiDataType> dphi(getDim());
+
+    IndexType l0 = dfg_->length(0);
+    IndexType l1 = dfg_->length(1);
+    double h0 = 1.0 / (double)l0;
+    double h1 = 1.0 / (double)l1;
+
+    for (size_t i = 0; i < nsteps_; ++i) {
+      phi_.swap(dfg_->getElementVector());
+
+      for (IndexType li = 0; li < dfg_->getNrElements(); ++li) {
+
+        IndexVector ai(getDim());
+        dfg_->getGlobalVectorIndex(li, ai);
+
+        // west neighbor
+        IndexVector wi = ai;
+        wi[0] = (l0 + wi[0] - 1) % l0;
+        IndexType lwi = dfg_->getGlobalLinearIndex(wi);
+
+        // south neighbor
+        IndexVector si = ai;
+        si[1] = (l1 + si[1] - 1) % l1;
+        IndexType lsi = dfg_->getGlobalLinearIndex(si);
+
+        // calculate gradient of phi with backward differential quotient
+        dphi[0] = (phi_[li] - phi_[lwi]) / h0;
+        dphi[1] = (phi_[li] - phi_[lsi]) / h1;
+
+        CombiDataType u_dot_dphi = u[0] * dphi[0] + u[1] * dphi[1];
+        dfg_->getData()[li] = phi_[li] - u_dot_dphi * dt_;
+      }
+    }
+
+    setFinished(true);
+  }
+
+  void getFullGrid(FullGrid<CombiDataType>& fg, RankType r, CommunicatorType lcomm, int n = 0) {
+    dfg_->gatherFullGrid(fg, r);
+  }
+
+  DistributedFullGrid<CombiDataType>& getDistributedFullGrid(int n = 0) { return *dfg_; }
+
+  void setZero() {}
+
+  ~TaskAdvectionFDM() {
+    if (dfg_ != NULL) delete dfg_;
+  }
+
+ protected:
+  TaskAdvectionFDM() : dfg_(NULL) {}
+
+ private:
+  friend class boost::serialization::access;
+
+  DistributedFullGrid<CombiDataType>* dfg_;
+  real dt_;
+  size_t nsteps_;
+  std::vector<CombiDataType> phi_;
+
+  template <class Archive>
+  void serialize(Archive& ar, const unsigned int version) {
+    // ar& boost::serialization::make_nvp(
+    // BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<Task>(*this));
+    ar& boost::serialization::base_object<Task>(*this);
+    ar& dt_;
+    ar& nsteps_;
+  }
+};
+
+using namespace combigrid;
 
 // this is necessary for correct function of task serialization
-
 BOOST_CLASS_EXPORT(TaskExample)
-//#ifdef ENABLE_FT
 BOOST_CLASS_EXPORT(StaticFaults)
 BOOST_CLASS_EXPORT(WeibullFaults)
-//#endif
+
 BOOST_CLASS_EXPORT(FaultCriterion)
 
 
 void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2err,size_t num_faults ) {
-    //int Sim_FT_MPI_Init(int *argc, char ***argv);
-
-   int size = useFG ? 2 : 7;
-  BOOST_REQUIRE(TestHelper::checkNumMPIProcsAvailable(size));
-
-  CommunicatorType comm = TestHelper::getComm(size);
-  if (comm == MPI_COMM_NULL){ return; }
-
-  combigrid::Stats::initialize();
-
+  
+  /* number of process groups and number of processes per group */
   size_t ngroup = 2;
   size_t nprocs = 2;
-    DimType dim = 2;
-    IndexVector p(1,2);
-    LevelVector lmin(dim, 3);
-    LevelVector lmax(dim, 6), leval(dim, 4);
 
-    // choose dt according to CFL condition
-    combigrid::real dt = 0.01;
-    FaultsInfo faultsInfo;
-    faultsInfo.numFaults_ = num_faults;
- 
-    size_t nsteps = 1;
-    size_t ncombi = 1;
-    std::vector<bool> boundary(dim, true);
+  DimType dim = 2;
+  LevelVector lmin(dim,3), lmax(dim,6), leval(dim,4);
+  IndexVector p(1,2);
+  size_t ncombi = 1;
+  size_t nsteps = 1;
+  combigrid::real dt = 0.01;
+  FaultsInfo faultsInfo = num_faults;
 
-  theMPISystem()->initWorldReusable(comm, ngroup, nprocs);
+  std::vector<bool> boundary(dim,true);
 
-  WORLD_MANAGER_EXCLUSIVE_SECTION {
+  theMPISystem()->init( ngroup, nprocs );
+
+  // manager code
+  if ( theMPISystem()->getWorldRank() == theMPISystem()->getManagerRankWorld() ) {
+    /* create an abstraction of the process groups for the manager's view
+     * a pgroup is identified by the ID in gcomm
+     */
     ProcessGroupManagerContainer pgroups;
     for (size_t i = 0; i < ngroup; ++i) {
       int pgroupRootID(i);
-      pgroups.emplace_back(std::make_shared<ProcessGroupManager>(pgroupRootID));
+      pgroups.emplace_back(
+          std::make_shared< ProcessGroupManager > ( pgroupRootID )
+                          );
     }
 
-    //std::unique_ptr<LoadModel> loadmodel = std::unique_ptr<LinearLoadModel>(new LinearLoadModel());
+
+    /* create load model */
     LoadModel* loadmodel = new LinearLoadModel();
+
     IndexType checkProcs = 1;
     for (auto k : p)
       checkProcs *= k;
@@ -103,15 +200,6 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
     std::vector<LevelVector> levels = combischeme.getCombiSpaces();
     std::vector<combigrid::real> coeffs = combischeme.getCoeffs();
 
-    //BOOST_REQUIRE(true); //if things go wrong weirdly, see where things go wrong
-
-//#ifdef TIMING
-  //  std::unique_ptr<LoadModel> loadmodel = std::unique_ptr<LearningLoadModel>(new LearningLoadModel(levels));
-//#else // TIMING
-    
-//#endif //def TIMING
-
-
     /* print info of the combination scheme */
     std::cout << "CombiScheme: " << std::endl;
     std::cout << combischeme;
@@ -119,7 +207,7 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
     /* create Tasks */
     TaskContainer tasks;
     std::vector<int> taskIDs;
-	
+
     for (size_t i = 0; i < levels.size(); i++) {
       //create FaultCriterion
       FaultCriterion *faultCrit;
@@ -127,15 +215,13 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
       if(faultsInfo.numFaults_ < 0){ //use random distributed faults
         //if numFaults is smallerthan 0 we use the absolute value
         //as lambda value for the weibull distribution
-        std::cout << " NUM OF FAULTSS:       " << faultsInfo.numFaults_;
         faultCrit = new WeibullFaults(0.7, abs(faultsInfo.numFaults_), ncombi, true);
       }
       else{ //use predefined static number and timing of faults
         //if numFaults = 0 there are no faults
-	std::cout << " NUM OF FAULTSS:  " << faultsInfo.numFaults_ << std::endl;
         faultCrit = new StaticFaults(faultsInfo);
       }
-      Task* t = new TaskExample(dim, levels[i], boundary, coeffs[i],loadmodel, dt, nsteps, p, faultCrit);
+      Task* t = new TaskAdvectionFDM(levels[i], boundary, coeffs[i], loadmodel.get(), dt, nsteps);
       tasks.push_back(t);
       taskIDs.push_back( t->getID() );
     }
@@ -145,7 +231,7 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
     params.setParallelization(p);
 
     /* create Manager with process groups */
-    ProcessManager manager( pgroups, tasks, params, std::unique_ptr<LoadModel>(loadmodel));
+    ProcessManager manager( pgroups, tasks, params );
 
     /* send combi parameters to workers */
     manager.updateCombiParameters();
@@ -154,7 +240,7 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
      * the first time */
     bool success = manager.runfirst();
 
-    for (size_t i = 1; i < ncombi; ++i){
+    for (size_t i = 0; i < ncombi; ++i){
 
       if ( !success ) {
         std::cout << "failed group detected at combi iteration " << i-1<< std::endl;
@@ -222,9 +308,9 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
       /* run tasks for next time interval */
       success = manager.runnext();
     }
+
     std::string filename("out/solution_" + std::to_string(ncombi) + ".dat" );
     manager.parallelEval( leval, filename, 0 );
-
     // evaluate solution
     FullGrid<CombiDataType> fg_eval(dim, leval, boundary);
     manager.gridEval(fg_eval);
@@ -246,9 +332,6 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
     // results recorded previously
     BOOST_CHECK(abs( fg_exact.getlpNorm(0) - l0err) < TestHelper::higherTolerance);
     BOOST_CHECK(abs( fg_exact.getlpNorm(2) - l2err) < TestHelper::higherTolerance);
-
-    
-
     /* send exit signal to workers in order to enable a clean program termination */
     manager.exit();
   }
@@ -273,11 +356,7 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
     }
   }
 
-  //simft::Sim_FT_MPI_Finalize();
-    combigrid::Stats::finalize();
-      MPI_Barrier(comm);
-
-  //return 0;
+  return 0;
 }
 	
 BOOST_AUTO_TEST_SUITE(ftolerance)
