@@ -279,17 +279,17 @@ BOOST_AUTO_TEST_CASE(test_3, * boost::unit_test::tolerance(TestHelper::tolerance
   MPI_Barrier(MPI_COMM_WORLD);
 }
 
-BOOST_AUTO_TEST_CASE(test_4, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(100)) {
+BOOST_AUTO_TEST_CASE(test_4, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(40)) {
   // use recombination
   checkManager(true, false, 0.083211, 0.473448,0);
 }
 
-BOOST_AUTO_TEST_CASE(test_5, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(120)) {
+BOOST_AUTO_TEST_CASE(test_5, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(60)) {
   // don't use recombination
   checkManager(false, false, 0.083211, 0.473448,0);
 }
 
-BOOST_AUTO_TEST_CASE(test_6, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(140)) {
+BOOST_AUTO_TEST_CASE(test_6, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(80)) {
   // calculate solution on fullgrid
   checkManager(false, true, 0.060058, 0.347316,0);
   MPI_Barrier(MPI_COMM_WORLD);
