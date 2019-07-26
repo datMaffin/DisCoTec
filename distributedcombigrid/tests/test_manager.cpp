@@ -1,3 +1,4 @@
+#ifndef ENABLE_FT
 #define BOOST_TEST_DYN_LINK
 #include <mpi.h>
 #include <boost/test/unit_test.hpp>
@@ -147,10 +148,10 @@ class TaskAdvectionFDM : public combigrid::Task {
 };
 
 BOOST_CLASS_EXPORT(TaskAdvectionFDM)
-BOOST_CLASS_EXPORT(StaticFaults)
-BOOST_CLASS_EXPORT(WeibullFaults)
+//BOOST_CLASS_EXPORT(StaticFaults)
+//BOOST_CLASS_EXPORT(WeibullFaults)
 
-BOOST_CLASS_EXPORT(FaultCriterion)
+//BOOST_CLASS_EXPORT(FaultCriterion)
 void checkManager(bool useCombine, bool useFG, double l0err, double l2err, size_t ncombi) {
   int size = useFG ? 2 : 7;
   BOOST_REQUIRE(TestHelper::checkNumMPIProcsAvailable(size));
@@ -278,17 +279,17 @@ BOOST_AUTO_TEST_CASE(test_3, * boost::unit_test::tolerance(TestHelper::tolerance
   MPI_Barrier(MPI_COMM_WORLD);
 }
 
-BOOST_AUTO_TEST_CASE(test_4, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(40)) {
+BOOST_AUTO_TEST_CASE(test_4, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(100)) {
   // use recombination
   checkManager(true, false, 0.083211, 0.473448,0);
 }
 
-BOOST_AUTO_TEST_CASE(test_5, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(60)) {
+BOOST_AUTO_TEST_CASE(test_5, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(120)) {
   // don't use recombination
   checkManager(false, false, 0.083211, 0.473448,0);
 }
 
-BOOST_AUTO_TEST_CASE(test_6, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(80)) {
+BOOST_AUTO_TEST_CASE(test_6, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(140)) {
   // calculate solution on fullgrid
   checkManager(false, true, 0.060058, 0.347316,0);
   MPI_Barrier(MPI_COMM_WORLD);
@@ -296,3 +297,4 @@ BOOST_AUTO_TEST_CASE(test_6, * boost::unit_test::tolerance(TestHelper::tolerance
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+#endif
