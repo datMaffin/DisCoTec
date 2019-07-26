@@ -147,10 +147,10 @@ class TaskAdvectionFDM : public combigrid::Task {
 };
 
 BOOST_CLASS_EXPORT(TaskAdvectionFDM)
-BOOST_CLASS_EXPORT(StaticFaults)
-BOOST_CLASS_EXPORT(WeibullFaults)
+//BOOST_CLASS_EXPORT(StaticFaults)
+//BOOST_CLASS_EXPORT(WeibullFaults)
 
-BOOST_CLASS_EXPORT(FaultCriterion)
+//BOOST_CLASS_EXPORT(FaultCriterion)
 void checkManager(bool useCombine, bool useFG, double l0err, double l2err, size_t ncombi) {
   int size = useFG ? 2 : 7;
   BOOST_REQUIRE(TestHelper::checkNumMPIProcsAvailable(size));
