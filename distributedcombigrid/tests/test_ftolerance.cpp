@@ -68,7 +68,7 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
   size_t ngroup = 2;
   size_t nprocs = 2;
     DimType dim = 2;
-    IndexVector p = 1;
+    IndexVector p = (1,2);
     LevelVector lmin(dim, 3);
     LevelVector lmax(dim, 6), leval(dim, 4);
 
