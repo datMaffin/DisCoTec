@@ -1,9 +1,11 @@
-#include "mpi.h"
+#define BOOST_TEST_DYN_LINK
+#include <mpi.h>
 #include <vector>
 #include <set>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/serialization/export.hpp>
+#include<boost/test/unit_test.hpp>
 
 // compulsory includes for basic functionality
 #include "sgpp/distributedcombigrid/task/Task.hpp"
@@ -15,28 +17,44 @@
 #include "sgpp/distributedcombigrid/manager/ProcessGroupManager.hpp"
 #include "sgpp/distributedcombigrid/manager/ProcessGroupWorker.hpp"
 #include "sgpp/distributedcombigrid/manager/ProcessManager.hpp"
-#include "sgpp/distributedcombigrid/fault_tolerance/LPOptimizationInterpolation.hpp"
+//#include "sgpp/distributedcombigrid/fault_tolerance/LPOptimizationInterpolation.hpp"
 #include "sgpp/distributedcombigrid/mpi_fault_simulator/MPI-FT.h"
 #include "sgpp/distributedcombigrid/fault_tolerance/FaultCriterion.hpp"
 #include "sgpp/distributedcombigrid/fault_tolerance/StaticFaults.hpp"
 #include "sgpp/distributedcombigrid/fault_tolerance/WeibullFaults.hpp"
 
 // include user specific task. this is the interface to your application
-#include "TaskExample.hpp"
+#include "test_helper.hpp"
+#include "sgpp/distributedcombigrid/fault_tolerance/TaskExample.hpp"
 
-#include "HelperFunctions.hpp"
+#include "sgpp/distributedcombigrid/fault_tolerance/HelperFunctions.hpp"
 
-using namespace combigrid;
+//,using namespace combigrid;
+/* functor for exact solution */
+class TestFn {
+ public:
+  // function value
+  double operator()(std::vector<double>& coords, double t) {
+    double exponent = 0;
+    for (DimType d = 0; d < coords.size(); ++d) {
+      coords[d] = std::fmod(1.0 + std::fmod(coords[d] - t, 1.0), 1.0);
+      exponent -= std::pow(coords[d] - 0.5, 2);
+    }
+    return std::exp(exponent * 100.0) * 2;
+  }
+};
 
 // this is necessary for correct function of task serialization
+
 BOOST_CLASS_EXPORT(TaskExample)
+//#ifdef ENABLE_FT
 BOOST_CLASS_EXPORT(StaticFaults)
 BOOST_CLASS_EXPORT(WeibullFaults)
-
+//#endif
 BOOST_CLASS_EXPORT(FaultCriterion)
 
 
-void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2err, size_t ncombi) {
+void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2err,size_t num_faults ) {
     //int Sim_FT_MPI_Init(int *argc, char ***argv);
 
    int size = useFG ? 2 : 7;
@@ -49,6 +67,20 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
 
   size_t ngroup = useFG ? 1 : 6;
   size_t nprocs = 1;
+    DimType dim = 2;
+    IndexVector p;
+    LevelVector lmin(dim, useFG ? 6 : 3);
+    LevelVector lmax(dim, 6), leval(dim, 6);
+
+    // choose dt according to CFL condition
+    combigrid::real dt = 0.0001;
+    FaultsInfo faultsInfo;
+    faultsInfo.numFaults_ = num_faults;
+
+    size_t nsteps = 100;
+    size_t ncombi = 100;
+    std::vector<bool> boundary(dim, true);
+
   theMPISystem()->initWorldReusable(comm, ngroup, nprocs);
 
   WORLD_MANAGER_EXCLUSIVE_SECTION {
@@ -58,34 +90,27 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
       pgroups.emplace_back(std::make_shared<ProcessGroupManager>(pgroupRootID));
     }
 
-    DimType dim = 2;
-    LevelVector lmin(dim, useFG ? 6 : 3);
-    LevelVector lmax(dim, 6), leval(dim, 6);
-
-    // choose dt according to CFL condition
-    combigrid::real dt = 0.0001;
-
-    size_t nsteps = 100;
-    //size_t ncombi = 0;
-    std::vector<bool> boundary(dim, true);
+    //std::unique_ptr<LoadModel> loadmodel = std::unique_ptr<LinearLoadModel>(new LinearLoadModel());
+    LoadModel* loadmodel = new LinearLoadModel();
+    IndexType checkProcs = 1;
+    for (auto k : p)
+      checkProcs *= k;
+    assert(checkProcs == IndexType(nprocs));
 
     CombiMinMaxScheme combischeme(dim, lmin, lmax);
     combischeme.createAdaptiveCombischeme();
+    combischeme.makeFaultTolerant();
     std::vector<LevelVector> levels = combischeme.getCombiSpaces();
     std::vector<combigrid::real> coeffs = combischeme.getCoeffs();
 
     BOOST_REQUIRE(true); //if things go wrong weirdly, see where things go wrong
 
-#ifdef TIMING
-    std::unique_ptr<LoadModel> loadmodel = std::unique_ptr<LearningLoadModel>(new LearningLoadModel(levels));
-#else // TIMING
-    std::unique_ptr<LoadModel> loadmodel = std::unique_ptr<LinearLoadModel>(new LinearLoadModel());
-#endif //def TIMING
+//#ifdef TIMING
+  //  std::unique_ptr<LoadModel> loadmodel = std::unique_ptr<LearningLoadModel>(new LearningLoadModel(levels));
+//#else // TIMING
+    
+//#endif //def TIMING
 
-    IndexType checkProcs = 1;
-    for (auto k : p)
-      checkProcs *= k;
-    assert(checkProcs == IndexType(nprocs));
 
     /* print info of the combination scheme */
     std::cout << "CombiScheme: " << std::endl;
@@ -94,7 +119,7 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
     /* create Tasks */
     TaskContainer tasks;
     std::vector<int> taskIDs;
-
+	
     for (size_t i = 0; i < levels.size(); i++) {
       //create FaultCriterion
       FaultCriterion *faultCrit;
@@ -102,14 +127,15 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
       if(faultsInfo.numFaults_ < 0){ //use random distributed faults
         //if numFaults is smallerthan 0 we use the absolute value
         //as lambda value for the weibull distribution
+        std::cout << " NUM OF FAULTSS:       " << faultsInfo.numFaults_;
         faultCrit = new WeibullFaults(0.7, abs(faultsInfo.numFaults_), ncombi, true);
       }
       else{ //use predefined static number and timing of faults
         //if numFaults = 0 there are no faults
+	std::cout << " NUM OF FAULTSS:  " << faultsInfo.numFaults_ << std::endl;
         faultCrit = new StaticFaults(faultsInfo);
       }
-      Task* t = new TaskExample(dim, levels[i], boundary, coeffs[i],
-                                loadmodel, dt, nsteps, p, faultCrit);
+      Task* t = new TaskExample(dim, levels[i], boundary, coeffs[i],loadmodel, dt, nsteps, p, faultCrit);
       tasks.push_back(t);
       taskIDs.push_back( t->getID() );
     }
@@ -119,7 +145,7 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
     params.setParallelization(p);
 
     /* create Manager with process groups */
-    ProcessManager manager( pgroups, tasks, params );
+    ProcessManager manager( pgroups, tasks, params, std::unique_ptr<LoadModel>(loadmodel));
 
     /* send combi parameters to workers */
     manager.updateCombiParameters();
@@ -197,6 +223,27 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
       success = manager.runnext();
     }
 
+    // evaluate solution
+    FullGrid<CombiDataType> fg_eval(dim, leval, boundary);
+    manager.gridEval(fg_eval);
+
+    // exact solution
+    TestFn f;
+    FullGrid<CombiDataType> fg_exact(dim, leval, boundary);
+    fg_exact.createFullGrid();
+    for (IndexType li = 0; li < fg_exact.getNrElements(); ++li) {
+      std::vector<double> coords(dim);
+      fg_exact.getCoords(li, coords);
+      fg_exact.getData()[li] = f(coords, (double)((1 + ncombi) * nsteps) * dt);
+    }
+
+    // calculate error
+    fg_exact.add(fg_eval, -1);
+    printf("LP Norm: %f\n", fg_exact.getlpNorm(0));
+    printf("LP Norm2: %f\n", fg_exact.getlpNorm(2));
+    // results recorded previously
+    BOOST_CHECK(abs( fg_exact.getlpNorm(0) - l0err) < TestHelper::higherTolerance);
+    BOOST_CHECK(abs( fg_exact.getlpNorm(2) - l2err) < TestHelper::higherTolerance);
 
     std::string filename("out/solution_" + std::to_string(ncombi) + ".dat" );
     manager.parallelEval( leval, filename, 0 );
@@ -229,14 +276,14 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
     combigrid::Stats::finalize();
       MPI_Barrier(comm);
 
-  return 0;
+  //return 0;
 }
 	
-BOOST_AUTO_TEST_SUITE(manager)
+BOOST_AUTO_TEST_SUITE(ftolerance)
 
 BOOST_AUTO_TEST_CASE(test_1, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(40)) {
   // use recombination
-  check_faultTolerance(true, false, 1.54369, 11.28857,100);
+  check_faultTolerance(true, false, 2.977406, 42.028659,10);
 }
 
 /* BOOST_AUTO_TEST_CASE(test_2, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(60)) {
@@ -268,3 +315,4 @@ BOOST_AUTO_TEST_CASE(test_6, * boost::unit_test::tolerance(TestHelper::tolerance
 }*/
 
 BOOST_AUTO_TEST_SUITE_END()
+
