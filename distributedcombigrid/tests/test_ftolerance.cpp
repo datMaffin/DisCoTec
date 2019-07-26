@@ -65,20 +65,20 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
 
   combigrid::Stats::initialize();
 
-  size_t ngroup = useFG ? 1 : 6;
-  size_t nprocs = 1;
+  size_t ngroup = 2;
+  size_t nprocs = 2;
     DimType dim = 2;
-    IndexVector p;
-    LevelVector lmin(dim, useFG ? 6 : 3);
-    LevelVector lmax(dim, 6), leval(dim, 6);
+    IndexVector p = 1;
+    LevelVector lmin(dim, 3);
+    LevelVector lmax(dim, 6), leval(dim, 4);
 
     // choose dt according to CFL condition
-    combigrid::real dt = 0.0001;
+    combigrid::real dt = 0.01;
     FaultsInfo faultsInfo;
     faultsInfo.numFaults_ = num_faults;
-
-    size_t nsteps = 100;
-    size_t ncombi = 100;
+ 
+    size_t nsteps = 1;
+    size_t ncombi = 1;
     std::vector<bool> boundary(dim, true);
 
   theMPISystem()->initWorldReusable(comm, ngroup, nprocs);
@@ -103,7 +103,7 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
     std::vector<LevelVector> levels = combischeme.getCombiSpaces();
     std::vector<combigrid::real> coeffs = combischeme.getCoeffs();
 
-    BOOST_REQUIRE(true); //if things go wrong weirdly, see where things go wrong
+    //BOOST_REQUIRE(true); //if things go wrong weirdly, see where things go wrong
 
 //#ifdef TIMING
   //  std::unique_ptr<LoadModel> loadmodel = std::unique_ptr<LearningLoadModel>(new LearningLoadModel(levels));
@@ -222,6 +222,8 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
       /* run tasks for next time interval */
       success = manager.runnext();
     }
+    std::string filename("out/solution_" + std::to_string(ncombi) + ".dat" );
+    manager.parallelEval( leval, filename, 0 );
 
     // evaluate solution
     FullGrid<CombiDataType> fg_eval(dim, leval, boundary);
@@ -245,8 +247,7 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
     BOOST_CHECK(abs( fg_exact.getlpNorm(0) - l0err) < TestHelper::higherTolerance);
     BOOST_CHECK(abs( fg_exact.getlpNorm(2) - l2err) < TestHelper::higherTolerance);
 
-    std::string filename("out/solution_" + std::to_string(ncombi) + ".dat" );
-    manager.parallelEval( leval, filename, 0 );
+    
 
     /* send exit signal to workers in order to enable a clean program termination */
     manager.exit();
@@ -281,11 +282,11 @@ void check_faultTolerance(bool useCombine, bool useFG, double l0err, double l2er
 	
 BOOST_AUTO_TEST_SUITE(ftolerance)
 
-/*BOOST_AUTO_TEST_CASE(test_1, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(80)) {
+BOOST_AUTO_TEST_CASE(test_1, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(80)) {
   // use recombination
 
   check_faultTolerance(true, false, 2.977406, 42.028659,1);
-}*/
+}
 
 /* BOOST_AUTO_TEST_CASE(test_2, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(60)) {
   // don't use recombination
