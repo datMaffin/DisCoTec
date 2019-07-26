@@ -284,7 +284,7 @@ BOOST_AUTO_TEST_SUITE(ftolerance)
 BOOST_AUTO_TEST_CASE(test_1, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(20)) {
   // use recombination
 
-  check_faultTolerance(true, false, 2.977406, 42.028659,0);
+  check_faultTolerance(true, false, 2.977406, 42.028659,1);
 }
 
 /* BOOST_AUTO_TEST_CASE(test_2, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(60)) {
