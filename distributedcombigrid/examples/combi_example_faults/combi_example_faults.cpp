@@ -206,7 +206,7 @@ int main(int argc, char** argv) {
 
     std::string filename("out/solution_" + std::to_string(ncombi) + ".dat" );
     manager.parallelEval( leval, filename, 0 );
-
+	
     /* send exit signal to workers in order to enable a clean program termination */
     manager.exit();
   }
