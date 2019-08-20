@@ -1,4 +1,3 @@
-#ifndef ENABLE_FT
 #define BOOST_TEST_DYN_LINK
 #include <mpi.h>
 #include <boost/test/unit_test.hpp>
@@ -24,6 +23,8 @@
 #include "sgpp/distributedcombigrid/utils/Config.hpp"
 #include "sgpp/distributedcombigrid/utils/Types.hpp"
 #include "test_helper.hpp"
+
+using namespace combigrid;
 
 /* functor for exact solution */
 class TestFn {
@@ -148,10 +149,10 @@ class TaskAdvectionFDM : public combigrid::Task {
 };
 
 BOOST_CLASS_EXPORT(TaskAdvectionFDM)
-//BOOST_CLASS_EXPORT(StaticFaults)
-//BOOST_CLASS_EXPORT(WeibullFaults)
+BOOST_CLASS_EXPORT(StaticFaults)
+BOOST_CLASS_EXPORT(WeibullFaults)
 
-//BOOST_CLASS_EXPORT(FaultCriterion)
+BOOST_CLASS_EXPORT(FaultCriterion)
 void checkManager(bool useCombine, bool useFG, double l0err, double l2err, size_t ncombi) {
   int size = useFG ? 2 : 7;
   BOOST_REQUIRE(TestHelper::checkNumMPIProcsAvailable(size));
@@ -297,4 +298,4 @@ BOOST_AUTO_TEST_CASE(test_6, * boost::unit_test::tolerance(TestHelper::tolerance
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-#endif
+
