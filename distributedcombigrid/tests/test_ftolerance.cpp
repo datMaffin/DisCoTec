@@ -150,14 +150,14 @@ class TaskAdvectionFDM : public combigrid::Task {
 };
 
 // this is necessary for correct function of task serialization
-BOOST_CLASS_EXPORT(TaskExample)
+BOOST_CLASS_EXPORT(TaskAdvectionFDM)
 BOOST_CLASS_EXPORT(StaticFaults)
 BOOST_CLASS_EXPORT(WeibullFaults)
 
 BOOST_CLASS_EXPORT(FaultCriterion)
 
 
-void checkFtolerance(bool useCombine, bool useFG, double l0err, double l2err, size_t nfaults, size_t iter_faults, size_t global_rfaults) {
+void checkFtolerance(bool useCombine, bool useFG, double l0err, double l2err, int nfaults) {
   
   int size = useFG ? 2 : 7;
   BOOST_REQUIRE(TestHelper::checkNumMPIProcsAvailable(size));
@@ -167,21 +167,13 @@ void checkFtolerance(bool useCombine, bool useFG, double l0err, double l2err, si
 
   combigrid::Stats::initialize();
 
-  size_t ngroup = useFG ? 1 : 2;
-  size_t nprocs = 2;
+  size_t ngroup = useFG ? 1 : 6;
+  size_t nprocs = 1;
   FaultsInfo faultsInfo;
   faultsInfo.numFaults_ = nfaults;
 
-  faultsInfo.iterationFaults_.resize(faultsInfo.numFaults_);
-  faultsInfo.globalRankFaults_.resize(faultsInfo.numFaults_);
-
-  if( faultsInfo.numFaults_ > 0 ){
-  faultsInfo.iterationFaults_ = iter_faults;
-  faultsInfo.globalRankFaults_ = global_rfaults;
-  }
-
   theMPISystem()->initWorldReusable(comm, ngroup, nprocs);
-
+   
   WORLD_MANAGER_EXCLUSIVE_SECTION {
     ProcessGroupManagerContainer pgroups;
     for (size_t i = 0; i < ngroup; ++i) {
@@ -195,11 +187,10 @@ void checkFtolerance(bool useCombine, bool useFG, double l0err, double l2err, si
 
     // choose dt according to CFL condition
     combigrid::real dt = 0.0001;
-
-    size_t nsteps = 1;
-    size_t ncombi = 3;
+    size_t nsteps = 100;
+    size_t ncombi = 100;
     std::vector<bool> boundary(dim, true);
-  theMPISystem()->init( ngroup, nprocs );
+  
 
     CombiMinMaxScheme combischeme(dim, lmin, lmax);
     combischeme.createAdaptiveCombischeme();
@@ -216,7 +207,6 @@ void checkFtolerance(bool useCombine, bool useFG, double l0err, double l2err, si
     std::unique_ptr<LoadModel> loadmodel = std::unique_ptr<LinearLoadModel>(new LinearLoadModel());
 #endif //def TIMING
 
-
     /*IndexType checkProcs = 1;
     for (auto k : p)
       checkProcs *= k;
@@ -225,7 +215,6 @@ void checkFtolerance(bool useCombine, bool useFG, double l0err, double l2err, si
     /* create Tasks */
    TaskContainer tasks;
     std::vector<int> taskIDs;
-
     for (size_t i = 0; i < levels.size(); i++) {
       //create FaultCriterion
       FaultCriterion *faultCrit;
@@ -246,10 +235,10 @@ void checkFtolerance(bool useCombine, bool useFG, double l0err, double l2err, si
 
     /* create combi parameters */
     CombiParameters params(dim, lmin, lmax, boundary, levels, coeffs, taskIDs, ncombi, 1);
-    params.setParallelization(p);
+    //params.setParallelization(p);
 
     /* create Manager with process groups */
-    ProcessManager manager( pgroups, tasks, params );
+    ProcessManager manager( pgroups, tasks, params, std::move(loadmodel) );
 
     /* send combi parameters to workers */
     manager.updateCombiParameters();
@@ -259,7 +248,6 @@ void checkFtolerance(bool useCombine, bool useFG, double l0err, double l2err, si
     bool success = manager.runfirst();
 
     for (size_t i = 1; i < ncombi; ++i){
-
       if ( !success ) {
         std::cout << "failed group detected at combi iteration " << i-1<< std::endl;
 //        manager.recover();
@@ -278,12 +266,12 @@ void checkFtolerance(bool useCombine, bool useFG, double l0err, double l2err, si
 
         for ( auto id : redistributeFaultsID ) {
           TaskAdvectionFDM* tmp = static_cast<TaskAdvectionFDM*>(manager.getTask(id));
-          tmp->setStepsTotal(i*nsteps);
+          //tmp->setStepsTotal(i*nsteps);
         }
 
         for ( auto id : recomputeFaultsID ) {
           TaskAdvectionFDM* tmp = static_cast<TaskAdvectionFDM*>(manager.getTask(id));
-          tmp->setStepsTotal((i-1)*nsteps);
+          //tmp->setStepsTotal((i-1)*nsteps);
         }
         /* recover communicators*/
         bool failedRecovery = manager.recoverCommunicators(groupFaults);
@@ -315,7 +303,7 @@ void checkFtolerance(bool useCombine, bool useFG, double l0err, double l2err, si
 
       /* combine solution */
       manager.combine();
-
+              
       if ( !success ){
         /* restore combischeme to its original state
          * and send new combiParameters to all surviving groups */
@@ -342,6 +330,7 @@ void checkFtolerance(bool useCombine, bool useFG, double l0err, double l2err, si
       fg_exact.getData()[li] = f(coords, (double)((1 + ncombi) * nsteps) * dt);
     }
 
+
     // calculate error
     fg_exact.add(fg_eval, -1);
     printf("LP Norm: %f\n", fg_exact.getlpNorm(0));
@@ -359,7 +348,7 @@ else {
     SignalType signal = -1;
     while (signal != EXIT) signal = pgroup.wait();
   }
-
+  
   combigrid::Stats::finalize();
   MPI_Barrier(comm);
 }
@@ -367,6 +356,6 @@ else {
 BOOST_AUTO_TEST_SUITE(ftolerance)
 
 BOOST_AUTO_TEST_CASE(test_1, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(40)) {
-  checkFtolerance(true, false, 1.54369, 11.28857,1,1,3);
+  checkFtolerance(true, false, 1.547297, 11.322462,1);
 }
 BOOST_AUTO_TEST_SUITE_END()
