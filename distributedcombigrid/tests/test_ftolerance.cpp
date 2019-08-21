@@ -157,9 +157,9 @@ BOOST_CLASS_EXPORT(WeibullFaults)
 BOOST_CLASS_EXPORT(FaultCriterion)
 
 
-void checkFtolerance(bool useCombine, bool useFG, double l0err, double l2err, int nfaults) {
+void checkFtolerance(double l0err, double l2err, int nfaults) {
   
-  int size = useFG ? 2 : 7;
+  int size = 7;
   BOOST_REQUIRE(TestHelper::checkNumMPIProcsAvailable(size));
 
   CommunicatorType comm = TestHelper::getComm(size);
@@ -167,7 +167,7 @@ void checkFtolerance(bool useCombine, bool useFG, double l0err, double l2err, in
 
   combigrid::Stats::initialize();
 
-  size_t ngroup = useFG ? 1 : 6;
+  size_t ngroup = 6;
   size_t nprocs = 1;
   FaultsInfo faultsInfo;
   faultsInfo.numFaults_ = nfaults;
@@ -182,7 +182,7 @@ void checkFtolerance(bool useCombine, bool useFG, double l0err, double l2err, in
     }
 
     DimType dim = 2;
-    LevelVector lmin(dim, useFG ? 6 : 3);
+    LevelVector lmin(dim, 3);
     LevelVector lmax(dim, 6), leval(dim, 6);
 
     // choose dt according to CFL condition
@@ -356,6 +356,8 @@ else {
 BOOST_AUTO_TEST_SUITE(ftolerance)
 
 BOOST_AUTO_TEST_CASE(test_1, * boost::unit_test::tolerance(TestHelper::tolerance) * boost::unit_test::timeout(40)) {
-  checkFtolerance(true, false, 1.547297, 11.322462,1);
+  checkFtolerance(1.547297, 11.322462,1);
+}
+
 }
 BOOST_AUTO_TEST_SUITE_END()
