@@ -136,11 +136,11 @@ inline real LearningLoadModel::eval(const LevelVector& l) {
       // use data from last time
       // std::cout << "using recoded average of " << last_durations_avg_[l] << " for " << toString(l)
                 // << std::endl;
-      ret = last_durations_avg_[l];
+      ret = boost::numeric_cast<double>(last_durations_avg_[l]);
     }
   } else {  // use simple averaging for now //TODO do fancier things, cache results
     for (auto duration : durationsOfLevels_->at(l)) {
-      ret += duration.duration;
+      ret += boost::numeric_cast<double>(duration.duration);
     }
     ret /= static_cast<double>(durationsOfLevels_->at(l).size());
   }
