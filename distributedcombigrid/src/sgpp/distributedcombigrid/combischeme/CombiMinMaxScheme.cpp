@@ -145,9 +145,10 @@ void CombiMinMaxScheme::computeCombiCoeffsClassical() {
   for (DimType i = 0; i < combiSpaces_.size(); ++i) {
     LevelType l1 = sum(combiSpaces_[i]);
     LevelType p = boost::numeric_cast<unsigned int>(n_ - l1);
+    unsigned int effDim = boost::numeric_cast<unsigned int>(effDim_ - 1);
     // Classical combination coefficients
     coefficients_.push_back(std::pow(-1, p) *
-                            boost::math::binomial_coefficient<real>(boost::numeric_cast<unsigned int>(effDim_ - 1), p));
+                            boost::math::binomial_coefficient<real>(effDim, p));
   }
 }
 
