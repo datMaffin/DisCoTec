@@ -39,7 +39,7 @@ bool ProcessManager::runfirst() {
   }
 
   bool group_failed = waitAllFinished();
-  size_t numDurationsToReceive = tasks_.size(); //TODO make work for failure
+  //size_t numDurationsToReceive = tasks_.size(); //TODO make work for failure
   receiveDurationsOfTasksFromGroupMasters(0);
 
   // return true if no group failed
@@ -72,7 +72,7 @@ bool ProcessManager::runnext() {
 
   group_failed = waitAllFinished();
   
-  size_t numDurationsToReceive = tasks_.size(); //TODO make work for failure
+  //size_t numDurationsToReceive = tasks_.size(); //TODO make work for failure
   receiveDurationsOfTasksFromGroupMasters(0);
   // return true if no group failed
   return !group_failed;
