@@ -359,5 +359,5 @@ BOOST_AUTO_TEST_CASE(test_1, * boost::unit_test::tolerance(TestHelper::tolerance
   checkFtolerance(1.547297, 11.322462,1);
 }
 
-}
+
 BOOST_AUTO_TEST_SUITE_END()
