@@ -569,7 +569,7 @@ bool MPISystem::recoverCommunicators(bool groupAlive,
     std::vector<RankType> failedRanks =
         getFailedRanks(numFailedRanks);  // has to be solved differently with ULFM
     std::cout << "nprocs - numFailed " << failedGroups.size() * nprocs_ - numFailedRanks << "\n";
-    newReusableRanks = boost::numeric_cast<int>(getReusableRanks(failedGroups.size() * nprocs_ - numFailedRanks));
+    newReusableRanks = getReusableRanks(failedGroups.size() * (int)nprocs_ - numFailedRanks);
     getReusableRanksSpare(reusableRanks_);  // update ranks of reusable ranks
     // toDO reusableRanks might be outdated due to new failures there
     bool enoughSpareProcs = sizeSpare - sizeNew >= numFailedRanks;
