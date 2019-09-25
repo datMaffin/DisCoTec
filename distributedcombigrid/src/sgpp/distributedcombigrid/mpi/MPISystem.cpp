@@ -16,13 +16,13 @@
 namespace {
 using namespace combigrid;
 
-std::string getMinMaxAvg(RankType r, int size, std::string timerName, bool isTimer, MPI_Comm comm) {
+/*std::string getMinMaxAvg(RankType r, int size, std::string timerName, bool isTimer, MPI_Comm comm) {
   double value;
-  /*    if( isTimer )
+     if( isTimer )
         value = theStatsContainer()->getDuration( timerName );
       else
         value = theStatsContainer()->getValue( timerName );
-  */
+  
   double min, max, sum;
   MPI_Reduce(&value, &min, 1, MPI_DOUBLE, MPI_MIN, r, comm);
   MPI_Reduce(&value, &max, 1, MPI_DOUBLE, MPI_MAX, r, comm);
@@ -34,7 +34,7 @@ std::string getMinMaxAvg(RankType r, int size, std::string timerName, bool isTim
   ss << timerName << "\t\t" << min << "\t" << max << "\t" << avg;
 
   return ss.str();
-}
+}*/
 }  // anonymous namespace
 
 namespace combigrid {
@@ -80,7 +80,7 @@ MPISystem::~MPISystem() {
 }
 
 void MPISystem::initSystemConstants(size_t ngroup, size_t nprocs, CommunicatorType worldComm = MPI_COMM_WORLD, bool reusable = false) {
-  assert(reusable || !initialized_ && "MPISystem already initialized!");
+  assert((reusable || !initialized_) && "MPISystem already initialized!");
   
   ngroup_ = ngroup;
   nprocs_ = nprocs;
@@ -268,7 +268,7 @@ void MPISystem::initGlobalReduceCommm() {
     if (ENABLE_FT) {
       createCommFT(&globalReduceCommFT_, globalReduceComm_);
     }
-    int size = getCommSize(globalReduceComm_);
+    //int size = getCommSize(globalReduceComm_);
     //std::cout << "size if global reduce comm " << size << "\n";
     MPI_Barrier(globalReduceComm_);
   } else {
@@ -569,7 +569,7 @@ bool MPISystem::recoverCommunicators(bool groupAlive,
     std::vector<RankType> failedRanks =
         getFailedRanks(numFailedRanks);  // has to be solved differently with ULFM
     std::cout << "nprocs - numFailed " << failedGroups.size() * nprocs_ - numFailedRanks << "\n";
-    newReusableRanks = getReusableRanks(failedGroups.size() * nprocs_ - numFailedRanks);
+    newReusableRanks = boost::numeric_cast<int>(getReusableRanks(failedGroups.size() * nprocs_ - numFailedRanks));
     getReusableRanksSpare(reusableRanks_);  // update ranks of reusable ranks
     // toDO reusableRanks might be outdated due to new failures there
     bool enoughSpareProcs = sizeSpare - sizeNew >= numFailedRanks;
