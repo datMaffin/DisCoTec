@@ -1396,9 +1396,9 @@ class DistributedFullGrid {
 
     if (status == MPI_CART) {
       // check if process grid of comm uses the required ordering
-      auto maxdims = boost::numeric_cast<int>(procs_.size());
+      auto maxdims = procs_.size();
       std::vector<int> cartdims(maxdims), periods(maxdims), coords(maxdims);
-      MPI_Cart_get(comm, maxdims, &cartdims[0], &periods[0], &coords[0]);
+      MPI_Cart_get(comm, boost::numeric_cast<int>(maxdims), &cartdims[0], &periods[0], &coords[0]);
 
       assert(cartdims == dims);
 
