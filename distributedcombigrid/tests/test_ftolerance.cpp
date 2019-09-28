@@ -264,15 +264,15 @@ void checkFtolerance(double l0err, double l2err, int nfaults) {
         manager.recomputeOptimumCoefficients(prob_name, faultsID,
                                              redistributeFaultsID, recomputeFaultsID);
 
-        for ( auto id : redistributeFaultsID ) {
+        f//or ( auto id : redistributeFaultsID ) {
           //TaskAdvectionFDM* tmp = static_cast<TaskAdvectionFDM*>(manager.getTask(id));
           //tmp->setStepsTotal(i*nsteps);
-        }
+        //}
 
-        for ( auto id : recomputeFaultsID ) {
+        //for ( auto id : recomputeFaultsID ) {
          // TaskAdvectionFDM* tmp = static_cast<TaskAdvectionFDM*>(manager.getTask(id));
           //tmp->setStepsTotal((i-1)*nsteps);
-        }
+        //}
         /* recover communicators*/
         bool failedRecovery = manager.recoverCommunicators(groupFaults);
 

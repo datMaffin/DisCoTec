@@ -69,7 +69,7 @@ class TaskConst : public combigrid::Task {
     std::vector<CombiDataType>& elements = dfg_->getElementVector();
     for (auto& element : elements) {
       // BOOST_CHECK(abs(dfg_->getData()[li]));
-      element = getLevelVector()[0] / boost::numeric_cast<double>(getLevelVector()[1]);
+      element = boost::numeric_cast<double>(getLevelVector()[0]) / getLevelVector()[1];
     }
     BOOST_CHECK(dfg_);
 
