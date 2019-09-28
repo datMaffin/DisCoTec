@@ -8,6 +8,7 @@
 #include REAL_MPI_INCLUDE
 
 #include <iostream>
+#include <boost/numeric/conversion/cast.hpp>
 
 int MPI_Comm_revoke(simft::Sim_FT_MPI_Comm f_comm) {
   simft::Sim_FT_Send_revoke_message(f_comm);
@@ -41,7 +42,7 @@ int MPI_Comm_failure_ack(simft::Sim_FT_MPI_Comm f_comm) {
 
     // create a group containing the current dead processes
     std::vector<int> deadP(f_comm->dead_set.begin(), f_comm->dead_set.end());
-    MPI_Group_incl(tempgroup, deadP.size(), &deadP[0], &f_comm->failedgrp);
+    MPI_Group_incl(tempgroup, boost::numeric_cast<int>(deadP.size()), &deadP[0], &f_comm->failedgrp);
   }
 
   f_comm->Ack_failed_processes = true;
