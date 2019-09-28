@@ -177,7 +177,7 @@ void checkFtolerance(double l0err, double l2err, int nfaults) {
   WORLD_MANAGER_EXCLUSIVE_SECTION {
     ProcessGroupManagerContainer pgroups;
     for (size_t i = 0; i < ngroup; ++i) {
-      int pgroupRootID(i);
+      int pgroupRootID(boost::numeric_cast<int>(i));
       pgroups.emplace_back(std::make_shared<ProcessGroupManager>(pgroupRootID));
     }
 
@@ -217,17 +217,17 @@ void checkFtolerance(double l0err, double l2err, int nfaults) {
     std::vector<int> taskIDs;
     for (size_t i = 0; i < levels.size(); i++) {
       //create FaultCriterion
-      FaultCriterion *faultCrit;
+      //FaultCriterion *faultCrit;
       //create fault criterion
-      if(faultsInfo.numFaults_ < 0){ //use random distributed faults
+      //if(faultsInfo.numFaults_ < 0){ //use random distributed faults
         //if numFaults is smallerthan 0 we use the absolute value
         //as lambda value for the weibull distribution
-        faultCrit = new WeibullFaults(0.7, abs(faultsInfo.numFaults_), ncombi, true);
-      }
-      else{ //use predefined static number and timing of faults
+        //faultCrit = new WeibullFaults(0.7, abs(faultsInfo.numFaults_), ncombi, true);
+      //}
+      //else{ //use predefined static number and timing of faults
         //if numFaults = 0 there are no faults
-        faultCrit = new StaticFaults(faultsInfo);
-      }
+        //faultCrit = new StaticFaults(faultsInfo);
+      //}
      Task* t = new TaskAdvectionFDM(levels[i], boundary, coeffs[i], loadmodel.get(), dt, nsteps);
       tasks.push_back(t);
       taskIDs.push_back(t->getID());
@@ -265,12 +265,12 @@ void checkFtolerance(double l0err, double l2err, int nfaults) {
                                              redistributeFaultsID, recomputeFaultsID);
 
         for ( auto id : redistributeFaultsID ) {
-          TaskAdvectionFDM* tmp = static_cast<TaskAdvectionFDM*>(manager.getTask(id));
+          //TaskAdvectionFDM* tmp = static_cast<TaskAdvectionFDM*>(manager.getTask(id));
           //tmp->setStepsTotal(i*nsteps);
         }
 
         for ( auto id : recomputeFaultsID ) {
-          TaskAdvectionFDM* tmp = static_cast<TaskAdvectionFDM*>(manager.getTask(id));
+         // TaskAdvectionFDM* tmp = static_cast<TaskAdvectionFDM*>(manager.getTask(id));
           //tmp->setStepsTotal((i-1)*nsteps);
         }
         /* recover communicators*/
@@ -336,8 +336,8 @@ void checkFtolerance(double l0err, double l2err, int nfaults) {
     printf("LP Norm: %f\n", fg_exact.getlpNorm(0));
     printf("LP Norm2: %f\n", fg_exact.getlpNorm(2));
     // results recorded previously
-    BOOST_CHECK(abs( fg_exact.getlpNorm(0) - l0err) < TestHelper::higherTolerance);
-    BOOST_CHECK(abs( fg_exact.getlpNorm(2) - l2err) < TestHelper::higherTolerance);
+    BOOST_CHECK(fabs( fg_exact.getlpNorm(0) - l0err) < TestHelper::higherTolerance);
+    BOOST_CHECK(fabs( fg_exact.getlpNorm(2) - l2err) < TestHelper::higherTolerance);
 
     /* send exit signal to workers in order to enable a clean program termination */
     manager.exit();
