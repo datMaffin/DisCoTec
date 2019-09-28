@@ -264,7 +264,7 @@ void checkFtolerance(double l0err, double l2err, int nfaults) {
         manager.recomputeOptimumCoefficients(prob_name, faultsID,
                                              redistributeFaultsID, recomputeFaultsID);
 
-        f//or ( auto id : redistributeFaultsID ) {
+        //or ( auto id : redistributeFaultsID ) {
           //TaskAdvectionFDM* tmp = static_cast<TaskAdvectionFDM*>(manager.getTask(id));
           //tmp->setStepsTotal(i*nsteps);
         //}
